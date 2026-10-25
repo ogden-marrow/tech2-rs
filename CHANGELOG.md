@@ -6,6 +6,8 @@
 - tech2-core image model and validation.
 - tech2-card transport/protocol scaffold.
 - tech2-tis read-only data probes.
-- tech2ctl inspect/ports commands.
+- Access/MDB export through mdbtools (36 tables in the 2008 Saab test data).
+- SuperBase rfile header probe.
+- tech2ctl inspect/ports/tis export/tis probe commands.
 - tech2d and tech2-gui placeholders.
 - Leak guard and CI.

@@ -2,11 +2,13 @@
 
 use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use tech2_core::inspect_image;
-use tech2_tis::DataStore;
+use tech2_tis::mdb::{sanitize_table_name, MdbTools};
+use tech2_tis::superbase;
+use tech2_tis::{DataStore, SUPERBASE_DIRS};
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -14,6 +16,7 @@ fn main() -> ExitCode {
         Some("inspect") => inspect(args.get(1).map(String::as_str)),
         Some("ports") => ports(),
         Some("mdb") => mdb(args.get(1).map(String::as_str)),
+        Some("tis") => tis(&args[1..]),
         Some("help" | "--help" | "-h") | None => {
             help();
             ExitCode::SUCCESS
@@ -96,15 +99,22 @@ fn mdb(root: Option<&str>) -> ExitCode {
     match DataStore::open(root) {
         Ok(store) => {
             println!("cosids:    {}", store.root().display());
-            println!("mdb:       {}", store.mdb_path().display());
-            println!(
-                "mdbtools:  {}",
-                if DataStore::mdb_tools_available() {
-                    "available"
-                } else {
-                    "not installed"
+            let db = store.mdb_path();
+            println!("mdb:       {}", db.display());
+            let tools = MdbTools::from_env();
+            if tools.available() {
+                match tools.tables(&db) {
+                    Ok(tables) => {
+                        println!("tables:    {}", tables.len());
+                        for table in tables.iter().take(20) {
+                            println!("  {table}");
+                        }
+                    }
+                    Err(err) => println!("tables:    error: {err}"),
                 }
-            );
+            } else {
+                println!("mdbtools:  not installed (set TECH2_MDBTOOLS or install mdbtools)");
+            }
             for dir in store.superbase_dirs() {
                 println!("superbase: {}", dir.display());
             }
@@ -117,11 +127,139 @@ fn mdb(root: Option<&str>) -> ExitCode {
     }
 }
 
+fn tis(args: &[String]) -> ExitCode {
+    match args.first().map(String::as_str) {
+        Some("export") => tis_export(&args[1..]),
+        Some("probe") => tis_probe(&args[1..]),
+        _ => {
+            eprintln!("usage: tech2ctl tis <export|probe> [options]");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn tis_export(args: &[String]) -> ExitCode {
+    let Some(out) = arg_value(args, "--out") else {
+        eprintln!("usage: tech2ctl tis export --cosids <dir> --out <dir>");
+        return ExitCode::FAILURE;
+    };
+    let cosids = arg_value(args, "--cosids").unwrap_or(".");
+    let store = match DataStore::open(cosids) {
+        Ok(store) => store,
+        Err(err) => {
+            eprintln!("error: {err}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let out = PathBuf::from(out);
+    let out_abs = match env::current_dir() {
+        Ok(cwd) => cwd.join(&out),
+        Err(err) => {
+            eprintln!("error: {err}");
+            return ExitCode::FAILURE;
+        }
+    };
+    if out_abs.starts_with(store.root()) {
+        eprintln!("refusing to write inside the source data directory");
+        return ExitCode::FAILURE;
+    }
+    let tools = MdbTools::from_env();
+    if !tools.available() {
+        eprintln!(
+            "mdbtools not found. Install the mdbtools package or set TECH2_MDBTOOLS to its bin directory."
+        );
+        return ExitCode::FAILURE;
+    }
+    let db = store.mdb_path();
+    let tables = match tools.tables(&db) {
+        Ok(tables) => tables,
+        Err(err) => {
+            eprintln!("error: {err}");
+            return ExitCode::FAILURE;
+        }
+    };
+    if let Err(err) = fs::create_dir_all(&out) {
+        eprintln!("cannot create {}: {err}", out.display());
+        return ExitCode::FAILURE;
+    }
+    let mut exported = 0usize;
+    for table in &tables {
+        match tools.export_table(&db, table) {
+            Ok(csv) => {
+                let path = out.join(format!("{}.csv", sanitize_table_name(table)));
+                if let Err(err) = fs::write(&path, csv) {
+                    eprintln!("cannot write {}: {err}", path.display());
+                    return ExitCode::FAILURE;
+                }
+                exported += 1;
+            }
+            Err(err) => eprintln!("skipping {table}: {err}"),
+        }
+    }
+    let manifest = format!(
+        "source: {}\ntables: {}\nexported: {}\n",
+        db.display(),
+        tables.len(),
+        exported
+    );
+    if let Err(err) = fs::write(out.join("manifest.txt"), manifest) {
+        eprintln!("cannot write manifest: {err}");
+        return ExitCode::FAILURE;
+    }
+    println!(
+        "exported {exported} of {} tables to {}",
+        tables.len(),
+        out.display()
+    );
+    if exported == tables.len() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
+fn tis_probe(args: &[String]) -> ExitCode {
+    let cosids = arg_value(args, "--cosids").unwrap_or(".");
+    let store = match DataStore::open(cosids) {
+        Ok(store) => store,
+        Err(err) => {
+            eprintln!("error: {err}");
+            return ExitCode::FAILURE;
+        }
+    };
+    for name in SUPERBASE_DIRS {
+        let file = store.root().join(name).join("rfile000");
+        if !file.is_file() {
+            println!("{name}: missing");
+            continue;
+        }
+        match superbase::probe(&file) {
+            Ok(probe) => println!(
+                "{name}: size={} magic_ok={} name={}",
+                probe.size,
+                probe.magic_ok,
+                probe.name.as_deref().unwrap_or("unknown")
+            ),
+            Err(err) => println!("{name}: error: {err}"),
+        }
+    }
+    ExitCode::SUCCESS
+}
+
+fn arg_value<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
+    args.iter()
+        .position(|arg| arg == flag)
+        .and_then(|index| args.get(index + 1))
+        .map(String::as_str)
+}
+
 fn help() {
     println!("tech2ctl {}", env!("CARGO_PKG_VERSION"));
     println!("usage:");
     println!("  tech2ctl inspect <image.bin>   validate a Tech 2 card image");
     println!("  tech2ctl ports                 list candidate serial devices");
     println!("  tech2ctl mdb [cosids-dir]      inspect a TIS2000 data directory");
+    println!("  tech2ctl tis export --cosids <dir> --out <dir>");
+    println!("  tech2ctl tis probe --cosids <dir>");
     println!("  tech2ctl help");
 }

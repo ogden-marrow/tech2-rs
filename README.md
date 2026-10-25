@@ -2,9 +2,9 @@
 
 A clean-room, open-source Rust toolchain for the Saab/GM Tech 2.
 
-**Status: pre-alpha scaffold.** The workspace, image model, CLI skeleton, and
-data-format probes are here. The native card-writer protocol and the data
-importers are next.
+**Status: early alpha.** The Rust workspace, image validation, and read-only
+Access export are working. The native card-writer protocol, SuperBase parser,
+daemon API, and GTK4 GUI are in progress.
 
 ## What this is
 
@@ -44,6 +44,30 @@ cargo test --workspace
 cargo run -p tech2ctl -- inspect /path/to/Saab-148.bin
 cargo run -p tech2ctl -- ports
 scripts/check-no-proprietary.sh
+~~~
+
+## Data import (working)
+
+The Access database can be exported read-only through mdbtools. The source
+file is never modified:
+
+~~~bash
+# Debian/Ubuntu: sudo apt install mdbtools
+sudo apt install mdbtools
+cargo run -p tech2ctl -- tis export \
+  --cosids "/path/to/Saab TIS2000 2.2008/cosids" \
+  --out "$HOME/tech2-data"
+~~~
+
+That exported all 36 tables from the 2008 Saab build in testing. If mdbtools
+lives outside PATH, set TECH2_MDBTOOLS to its bin directory.
+
+The SuperBase databases are probed read-only while the native parser is
+developed:
+
+~~~bash
+cargo run -p tech2ctl -- tis probe \
+  --cosids "/path/to/Saab TIS2000 2.2008/cosids"
 ~~~
 
 ## Legal and clean-room policy

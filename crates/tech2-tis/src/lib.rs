@@ -8,6 +8,9 @@ use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+pub mod mdb;
+pub mod superbase;
+
 /// SuperBase data directories commonly present in a TIS2000 cosids tree.
 pub const SUPERBASE_DIRS: [&str; 4] = ["spssaabdb", "scasbdb", "sdt2sbdb", "vcsaabdb"];
 
@@ -19,7 +22,12 @@ pub struct DataStore {
 
 impl DataStore {
     pub fn open(root: impl Into<PathBuf>) -> io::Result<Self> {
-        let root = root.into();
+        let root = std::fs::canonicalize(root.into()).map_err(|err| {
+            io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("not a TIS2000 cosids directory: {err}"),
+            )
+        })?;
         if !root.is_dir() {
             return Err(io::Error::new(
                 io::ErrorKind::NotFound,

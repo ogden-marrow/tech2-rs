@@ -1,0 +1,11 @@
+[package]
+name = "tech2-tis"
+description = "Read-only TIS2000 data import probes (Access MDB and SuperBase)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lints.rust]
+unsafe_code = "forbid"

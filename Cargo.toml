@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/tech2-core",
+    "crates/tech2-card",
+    "crates/tech2-tis",
+    "crates/tech2d",
+    "crates/tech2ctl",
+    "crates/tech2-gui",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Tech2 Rust contributors"]
+repository = "https://github.com/ogden-marrow/tech2-rs"
+rust-version = "1.80"

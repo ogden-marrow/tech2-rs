@@ -1,0 +1,11 @@
+[package]
+name = "tech2-core"
+description = "Tech 2 card image model and validation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lints.rust]
+unsafe_code = "forbid"

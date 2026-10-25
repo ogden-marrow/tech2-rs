@@ -1,0 +1,12 @@
+[package]
+name = "tech2ctl"
+description = "Command-line client for the Tech 2 toolchain"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tech2-core = { path = "../tech2-core" }
+tech2-tis = { path = "../tech2-tis" }

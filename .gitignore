@@ -1,0 +1,47 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Proprietary data and binaries — never commit these
+*.bin
+*.BIN
+*.mdb
+*.MDB
+*.accdb
+*.ACCDB
+*.exe
+*.EXE
+*.dll
+*.DLL
+*.sys
+*.SYS
+*.zip
+*.ZIP
+*.7z
+*.rar
+*.iso
+*.img
+*.tar
+*.gz
+*.xz
+*.bz2
+rfile[0-9]*
+*.SC
+*.sc
+TIS2000*
+Card_writer*
+COSIDS*
+spssaabdb*
+scasbdb*
+sdt2sbdb*
+vcsaabdb*
+
+# Local data/indexes, secrets, build output
+/data/
+/index/
+/.env
+*.key
+*.pem
+*.p12
+*.pfx

@@ -1,6 +1,6 @@
 [package]
 name = "tech2d"
-description = "Local Tech 2 daemon and JSON-RPC API (scaffold)"
+description = "Local Tech 2 JSON-RPC daemon"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,6 +8,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+serde_json = "1"
 tech2-card = { path = "../tech2-card" }
 tech2-core = { path = "../tech2-core" }
 tech2-tis = { path = "../tech2-tis" }

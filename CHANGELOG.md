@@ -9,5 +9,7 @@
 - Access/MDB export through mdbtools (36 tables in the 2008 Saab test data).
 - SuperBase rfile header probe.
 - tech2ctl inspect/ports/tis export/tis probe commands.
-- tech2d and tech2-gui placeholders.
+- tech2d local JSON-RPC daemon: status, ports.list, images.inspect, tis.tables, tis.probe, card.capabilities.
+- tech2ctl rpc client and shared serial-port discovery.
+- tech2-gui placeholder.
 - Leak guard and CI.

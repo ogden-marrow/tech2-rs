@@ -8,5 +8,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+serde_json = "1"
 tech2-core = { path = "../tech2-core" }
 tech2-tis = { path = "../tech2-tis" }
+tech2d = { path = "../tech2d" }

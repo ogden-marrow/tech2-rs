@@ -5,6 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use serde_json::{json, Value};
 use tech2_core::inspect_image;
 use tech2_tis::mdb::{sanitize_table_name, MdbTools};
 use tech2_tis::superbase;
@@ -17,6 +18,7 @@ fn main() -> ExitCode {
         Some("ports") => ports(),
         Some("mdb") => mdb(args.get(1).map(String::as_str)),
         Some("tis") => tis(&args[1..]),
+        Some("rpc") => rpc(&args[1..]),
         Some("help" | "--help" | "-h") | None => {
             help();
             ExitCode::SUCCESS
@@ -65,30 +67,12 @@ fn inspect(path: Option<&str>) -> ExitCode {
 }
 
 fn ports() -> ExitCode {
-    let mut found = Vec::new();
-    match fs::read_dir("/dev") {
-        Ok(entries) => {
-            for entry in entries.flatten() {
-                let name = entry.file_name().to_string_lossy().to_string();
-                let interesting = name.starts_with("ttyUSB")
-                    || name.starts_with("ttyACM")
-                    || matches!(name.as_str(), "ttyS0" | "ttyS1" | "ttyS2" | "ttyS3");
-                if interesting {
-                    found.push(entry.path());
-                }
-            }
-        }
-        Err(err) => {
-            eprintln!("cannot read /dev: {err}");
-            return ExitCode::FAILURE;
-        }
-    }
-    found.sort();
-    if found.is_empty() {
+    let ports = tech2_core::ports::list_ports();
+    if ports.is_empty() {
         println!("No serial ports found. Plug in the Tech 2 adapter and try again.");
     } else {
-        for path in found {
-            println!("{}", path.display());
+        for port in ports {
+            println!("{}\t{}", port.device.display(), port.kind);
         }
     }
     ExitCode::SUCCESS
@@ -246,6 +230,41 @@ fn tis_probe(args: &[String]) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+fn rpc(args: &[String]) -> ExitCode {
+    let Some(method) = args
+        .first()
+        .filter(|arg| !arg.starts_with("--"))
+        .map(String::as_str)
+    else {
+        eprintln!("usage: tech2ctl rpc <method> [json-params] [--socket PATH]");
+        return ExitCode::FAILURE;
+    };
+    let params = match args.get(1).filter(|arg| !arg.starts_with("--")) {
+        Some(raw) => match serde_json::from_str::<Value>(raw) {
+            Ok(value) => value,
+            Err(err) => {
+                eprintln!("invalid JSON params: {err}");
+                return ExitCode::FAILURE;
+            }
+        },
+        None => json!({}),
+    };
+    let socket = arg_value(args, "--socket")
+        .map(PathBuf::from)
+        .unwrap_or_else(tech2d::default_socket_path);
+    match tech2d::rpc_call(&socket, method, params) {
+        Ok(result) => {
+            let text = serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string());
+            println!("{text}");
+            ExitCode::SUCCESS
+        }
+        Err(err) => {
+            eprintln!("error: {err}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 fn arg_value<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
     args.iter()
         .position(|arg| arg == flag)
@@ -261,5 +280,6 @@ fn help() {
     println!("  tech2ctl mdb [cosids-dir]      inspect a TIS2000 data directory");
     println!("  tech2ctl tis export --cosids <dir> --out <dir>");
     println!("  tech2ctl tis probe --cosids <dir>");
+    println!("  tech2ctl rpc <method> [json] [--socket PATH]");
     println!("  tech2ctl help");
 }

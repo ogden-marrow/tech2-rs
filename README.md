@@ -2,9 +2,9 @@
 
 A clean-room, open-source Rust toolchain for the Saab/GM Tech 2.
 
-**Status: early alpha.** The Rust workspace, image validation, and read-only
-Access export are working. The native card-writer protocol, SuperBase parser,
-daemon API, and GTK4 GUI are in progress.
+**Status: early alpha.** The Rust workspace, image validation, read-only
+Access export, and local JSON-RPC daemon are working. The native card-writer
+protocol, SuperBase parser, and GTK4 GUI are in progress.
 
 ## What this is
 
@@ -69,6 +69,28 @@ developed:
 cargo run -p tech2ctl -- tis probe \
   --cosids "/path/to/Saab TIS2000 2.2008/cosids"
 ~~~
+
+## Daemon API (working)
+
+tech2d owns the Unix socket; tech2ctl and the GUI are clients.
+
+~~~bash
+# one terminal
+cargo run -p tech2d -- --socket /tmp/tech2d.sock
+
+# another
+cargo run -p tech2ctl -- rpc status --socket /tmp/tech2d.sock
+cargo run -p tech2ctl -- rpc ports.list --socket /tmp/tech2d.sock
+cargo run -p tech2ctl -- rpc images.inspect \
+  '{"path":"/path/to/Saab 148.bin"}' --socket /tmp/tech2d.sock
+cargo run -p tech2ctl -- rpc tis.tables \
+  '{"cosids":"/path/to/cosids"}' --socket /tmp/tech2d.sock
+~~~
+
+The wire format is newline-delimited JSON-RPC 2.0 on a local socket. The
+socket is chmod 0600, and the daemon never writes to TIS2000 data. See
+[docs/API.md](docs/API.md). `card.write` intentionally returns an error
+until the native protocol is captured.
 
 ## Legal and clean-room policy
 

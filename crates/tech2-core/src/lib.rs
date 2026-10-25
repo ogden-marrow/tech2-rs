@@ -1,5 +1,7 @@
 //! Image model and validation for Saab/GM Tech 2 card images.
 
+pub mod ports;
+
 use std::fs::File;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
